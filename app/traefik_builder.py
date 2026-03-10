@@ -26,7 +26,7 @@ class TraefikConfigBuilder:
         }
 
         for target in targets:
-            service_name = f"svc-{slugify(f'{target.destination_name}-{target.name}')}"
+            service_name = f"svc-{slugify(f'{target.server_name}-{target.name}')}"
             config["http"]["services"][service_name] = {
                 "loadBalancer": {
                     "passHostHeader": True,
@@ -39,7 +39,7 @@ class TraefikConfigBuilder:
             }
 
             for domain in target.domains:
-                router_name = slugify(f"{target.destination_name}-{target.name}-{domain}")
+                router_name = slugify(f"{target.server_name}-{target.name}-{domain}")
                 router_config = {
                     "rule": f"Host(`{domain}`)",
                     "entryPoints": self.entrypoints,

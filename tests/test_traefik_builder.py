@@ -13,7 +13,7 @@ def test_build_generates_routers_and_services():
     targets = [
         ServiceTarget(
             name="gitea",
-            destination_name="app-server",
+            server_name="app-server",
             target_host="192.168.1.20",
             target_port="3000",
             scheme="http",

@@ -62,6 +62,59 @@ def test_sync_service_updates_remote_file_and_reloads_when_changed(
     assert len(parsed["http"]["services"]) == 1
 
 
+def test_sync_service_handles_wrong_traefik_file_path_read_error(
+    app_config,
+    fake_client_factory,
+):
+    wrong_path = "/etc/dokploy/traefik/dynamic/missing-edge-sync.yml"
+    app_config.ingress_traefik_dynamic_file = wrong_path
+
+    fake_client = fake_client_factory(
+        servers=[
+            {
+                "serverId": "ingress-1",
+                "name": "ingress",
+                "ipAddress": "192.168.1.10",
+            },
+            {
+                "serverId": "app-1",
+                "name": "app-server",
+                "ipAddress": "10.0.0.20",
+            },
+        ],
+        containers_by_server={
+            "app-1": [
+                {
+                    "Id": "container-1",
+                    "Names": ["/gitea"],
+                }
+            ]
+        },
+        inspect_by_container={
+            ("app-1", "container-1"): {
+                "Config": {
+                    "Labels": {
+                        "edge.enabled": "true",
+                        "edge.port": "3000",
+                        "edge.domains": "git.example.com",
+                    }
+                }
+            }
+        },
+        read_traefik_errors={
+            ("ingress-1", wrong_path): FileNotFoundError("remote file not found")
+        },
+    )
+
+    service = SyncService(app_config, fake_client)
+    result = service.run()
+
+    assert "http" in result
+    assert len(fake_client.updated_files) == 1
+    assert fake_client.updated_files[0]["path"] == wrong_path
+    assert fake_client.reloaded_servers == ["ingress-1"]
+
+
 def test_sync_service_does_not_reload_when_content_is_identical(
     app_config,
     fake_client_factory,

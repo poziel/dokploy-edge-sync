@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from uuid import uuid4
 
 import pytest
 
@@ -16,6 +17,7 @@ class FakeDokployClient:
         application_domains=None,
         compose_domains=None,
         remote_files=None,
+        read_traefik_errors=None,
     ) -> None:
         self._servers = servers or []
         self._containers_by_server = containers_by_server or {}
@@ -23,6 +25,7 @@ class FakeDokployClient:
         self._application_domains = application_domains or {}
         self._compose_domains = compose_domains or {}
         self._remote_files = remote_files or {}
+        self._read_traefik_errors = read_traefik_errors or {}
 
         self.updated_files = []
         self.reloaded_servers = []
@@ -43,6 +46,9 @@ class FakeDokployClient:
         return self._compose_domains.get(compose_id, [])
 
     def read_traefik_file(self, server_id: str, path: str):
+        error = self._read_traefik_errors.get((server_id, path))
+        if error is not None:
+            raise error
         return self._remote_files.get((server_id, path), "")
 
     def update_traefik_file(self, server_id: str, path: str, traefik_config: str):
@@ -62,7 +68,10 @@ class FakeDokployClient:
 
 
 @pytest.fixture
-def app_config(tmp_path: Path) -> AppConfig:
+def app_config() -> AppConfig:
+    tmp_path = Path("tests") / "__pycache__" / "runtime" / uuid4().hex
+    tmp_path.mkdir(parents=True, exist_ok=True)
+
     return AppConfig(
         dokploy_api_base="https://dokploy.example/api",
         dokploy_api_token="test-token",

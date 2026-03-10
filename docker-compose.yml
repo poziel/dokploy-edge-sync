@@ -1,0 +1,11 @@
+services:
+  dokploy-edge-sync:
+    build: .
+    container_name: dokploy-edge-sync
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./config:/app/config
+      - ./data:/app/data
+      - ./traefik-dynamic:/etc/traefik/dynamic

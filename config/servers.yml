@@ -1,0 +1,30 @@
+# Optional override map for Dokploy destinations.
+#
+# This file lets you define the preferred address that the central Traefik
+# instance should use when proxying traffic to services running on each server.
+#
+# In many environments, this file is not required if Dokploy's destination API
+# already returns a reachable and correct IP/hostname.
+#
+# Use this file when:
+# - Dokploy does not return a usable address
+# - you prefer a private VPN IP over a public IP
+# - you want to force routing through LAN or Tailscale/WireGuard
+# - destination names need to resolve to a specific internal hostname
+#
+# Format:
+#   <destination-name>: <preferred-ip-or-hostname>
+#
+# Notes:
+# - Keys should match the destination names returned by Dokploy
+# - Values must be reachable from the server running Traefik
+# - Hostnames are allowed if they resolve correctly from the edge server
+
+# Example local server reachable over LAN
+app-server: 192.168.1.20
+
+# Example remote server reachable over VPN
+production-server: 100.64.0.15
+
+# Example host referenced by internal DNS name
+staging-server: staging.internal.example

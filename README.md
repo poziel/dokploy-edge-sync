@@ -52,12 +52,13 @@ This makes it well-suited for environments where services are distributed across
 Dokploy Edge Sync follows this workflow:
 
 1. Query the Dokploy API for all known servers
-2. Discover eligible containers and their routing metadata
-3. Build a Traefik dynamic configuration in memory
-4. Read the current remote Traefik file from the ingress server
-5. Compare the existing and generated configurations
-6. Update the file only if the content changed
-7. Reload Traefik only if an update was applied
+2. Resolve ingress server identity from `/settings.getWebServerSettings`
+3. Discover eligible containers and their routing metadata
+4. Build a Traefik dynamic configuration in memory
+5. Read the current remote Traefik file from the ingress server
+6. Compare the existing and generated configurations
+7. Update the file only if the content changed
+8. Reload Traefik only if an update was applied
 
 This keeps the setup simple and avoids unnecessary reloads.
 
@@ -119,7 +120,6 @@ The application is configured primarily through environment variables.
 
 - `DOKPLOY_API_BASE`
 - `DOKPLOY_API_TOKEN`
-- `INGRESS_SERVER_NAME`
 
 ### Important Optional Settings
 

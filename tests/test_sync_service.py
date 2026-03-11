@@ -111,116 +111,45 @@ def test_sync_service_handles_wrong_traefik_file_path_read_error(
     assert fake_client.reloaded_servers == ["ingress-1"]
 
 
-def test_sync_service_falls_back_to_name_lookup_when_web_settings_missing(
+def test_sync_service_raises_when_no_ingress_id_from_web_settings(
     app_config,
     fake_client_factory,
 ):
     fake_client = fake_client_factory(
         servers=[
             {
-                "serverId": "ingress-1",
-                "name": "ingress",
-                "ipAddress": "192.168.1.10",
-            },
-            {
                 "serverId": "app-1",
                 "name": "app-server",
                 "ipAddress": "10.0.0.20",
-            },
+            }
         ],
         web_server_settings={},
-        containers_by_server={
-            "app-1": [
-                {
-                    "Id": "container-1",
-                    "Names": ["/gitea"],
-                }
-            ]
-        },
-        inspect_by_container={
-            ("app-1", "container-1"): {
-                "Config": {
-                    "Labels": {
-                        "edge.enabled": "true",
-                        "edge.port": "3000",
-                        "edge.domains": "git.example.com",
-                    }
-                }
-            }
-        },
     )
 
     service = SyncService(app_config, fake_client)
-    service.run()
 
-    assert len(fake_client.updated_files) == 1
-    assert fake_client.updated_files[0]["server_id"] == "ingress-1"
+    with pytest.raises(ValueError, match="Could not resolve ingress server id"):
+        service.run()
 
 
-def test_sync_service_falls_back_to_name_lookup_when_web_settings_errors(
+def test_sync_service_propagates_error_when_web_settings_call_fails(
     app_config,
     fake_client_factory,
 ):
     fake_client = fake_client_factory(
         servers=[
             {
-                "serverId": "ingress-1",
-                "name": "ingress",
-                "ipAddress": "192.168.1.10",
-            },
-            {
                 "serverId": "app-1",
                 "name": "app-server",
                 "ipAddress": "10.0.0.20",
-            },
+            }
         ],
         web_server_settings_error=RuntimeError("settings endpoint unavailable"),
-        containers_by_server={
-            "app-1": [
-                {
-                    "Id": "container-1",
-                    "Names": ["/gitea"],
-                }
-            ]
-        },
-        inspect_by_container={
-            ("app-1", "container-1"): {
-                "Config": {
-                    "Labels": {
-                        "edge.enabled": "true",
-                        "edge.port": "3000",
-                        "edge.domains": "git.example.com",
-                    }
-                }
-            }
-        },
-    )
-
-    service = SyncService(app_config, fake_client)
-    service.run()
-
-    assert len(fake_client.updated_files) == 1
-    assert fake_client.updated_files[0]["server_id"] == "ingress-1"
-
-
-def test_sync_service_raises_when_no_ingress_from_settings_or_server_all(
-    app_config,
-    fake_client_factory,
-):
-    fake_client = fake_client_factory(
-        servers=[
-            {
-                "serverId": "app-1",
-                "name": "app-server",
-                "ipAddress": "10.0.0.20",
-            }
-        ],
-        web_server_settings={},
     )
 
     service = SyncService(app_config, fake_client)
 
-    with pytest.raises(ValueError, match='Could not find ingress server named "ingress"'):
+    with pytest.raises(RuntimeError, match="settings endpoint unavailable"):
         service.run()
 
 

@@ -16,7 +16,6 @@ class AppConfig:
     dokploy_api_base: str
     dokploy_api_token: str
 
-    ingress_server_name: str
     ingress_traefik_dynamic_file: str
     reload_on_change: bool
 
@@ -46,7 +45,6 @@ class AppConfig:
             dokploy_api_base=os.environ["DOKPLOY_API_BASE"].rstrip("/"),
             dokploy_api_token=os.environ["DOKPLOY_API_TOKEN"],
 
-            ingress_server_name=os.environ["INGRESS_SERVER_NAME"],
             ingress_traefik_dynamic_file=os.getenv(
                 "INGRESS_TRAEFIK_DYNAMIC_FILE",
                 "/etc/dokploy/traefik/dynamic/edge-sync.yml",

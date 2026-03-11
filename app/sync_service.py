@@ -51,7 +51,7 @@ class SyncService:
         servers = parse_servers(self.client.get_servers())
         logger.info("Discovered %s servers", len(servers))
 
-        ingress_server = self.resolve_ingress_server(servers)
+        ingress_server = self.resolve_ingress_server()
         logger.info(
             "Using ingress server: %s (%s)",
             ingress_server.name,
@@ -100,31 +100,25 @@ class SyncService:
         self.write_state(generated_config, changed, ingress_server.server_id)
         return generated_config
 
-    def resolve_ingress_server(self, servers: list[Server]) -> Server:
+    def resolve_ingress_server(self) -> Server:
         """
-        Resolve ingress server identity for Traefik file operations.
-
-        Preferred source:
-        - /settings.getWebServerSettings (current Dokploy host)
-
-        Fallback:
-        - name lookup from /server.all using INGRESS_SERVER_NAME
+        Resolve ingress server identity for Traefik file operations from
+        /settings.getWebServerSettings.
         """
-        try:
-            payload = self.client.get_web_server_settings()
-            server_id = self.deep_pick(payload, "serverId", "id")
-            if server_id:
-                name = self.deep_pick(payload, "name", "serverName", "host", "hostname")
-                ip_address = self.deep_pick(payload, "serverIp", "ipAddress", "ip")
-                return Server(
-                    server_id=str(server_id),
-                    name=str(name or self.config.ingress_server_name),
-                    ip_address=str(ip_address) if ip_address else None,
-                )
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("Could not resolve ingress from web server settings: %s", exc)
+        payload = self.client.get_web_server_settings()
+        server_id = self.deep_pick(payload, "serverId", "id")
 
-        return self.find_ingress_server(servers)
+        if not server_id:
+            raise ValueError("Could not resolve ingress server id from /settings.getWebServerSettings")
+
+        name = self.deep_pick(payload, "name", "serverName", "host", "hostname")
+        ip_address = self.deep_pick(payload, "serverIp", "ipAddress", "ip")
+
+        return Server(
+            server_id=str(server_id),
+            name=str(name or "ingress"),
+            ip_address=str(ip_address) if ip_address else None,
+        )
 
     def build_targets(self, servers: list) -> list[ServiceTarget]:
         """
@@ -253,20 +247,6 @@ class SyncService:
                 result.append(normalized)
 
         return result
-
-    def find_ingress_server(self, servers: list):
-        """
-        Find the configured ingress server by exact name match.
-        """
-        wanted = self.config.ingress_server_name.strip().lower()
-
-        for server in servers:
-            if server.name.strip().lower() == wanted:
-                return server
-
-        raise ValueError(
-            f'Could not find ingress server named "{self.config.ingress_server_name}"'
-        )
 
     def resolve_server_host(self, server_name: str, discovered_ip: str | None) -> str | None:
         """

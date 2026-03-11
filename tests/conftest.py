@@ -100,7 +100,6 @@ def app_config() -> AppConfig:
     return AppConfig(
         dokploy_api_base="https://dokploy.example/api",
         dokploy_api_token="test-token",
-        ingress_server_name="ingress",
         ingress_traefik_dynamic_file="/etc/dokploy/traefik/dynamic/edge-sync.yml",
         reload_on_change=True,
         traefik_cert_resolver="letsencrypt",

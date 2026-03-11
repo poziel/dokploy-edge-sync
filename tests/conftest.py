@@ -18,6 +18,10 @@ class FakeDokployClient:
         compose_domains=None,
         remote_files=None,
         read_traefik_errors=None,
+        web_server_settings=None,
+        web_server_settings_error=None,
+        update_traefik_error=None,
+        reload_traefik_error=None,
     ) -> None:
         self._servers = servers or []
         self._containers_by_server = containers_by_server or {}
@@ -26,12 +30,29 @@ class FakeDokployClient:
         self._compose_domains = compose_domains or {}
         self._remote_files = remote_files or {}
         self._read_traefik_errors = read_traefik_errors or {}
+        self._web_server_settings = (
+            {
+                "id": "ingress-1",
+                "host": "ingress",
+                "serverIp": "192.168.1.10",
+            }
+            if web_server_settings is None
+            else web_server_settings
+        )
+        self._web_server_settings_error = web_server_settings_error
+        self._update_traefik_error = update_traefik_error
+        self._reload_traefik_error = reload_traefik_error
 
         self.updated_files = []
         self.reloaded_servers = []
 
     def get_servers(self):
         return self._servers
+
+    def get_web_server_settings(self):
+        if self._web_server_settings_error is not None:
+            raise self._web_server_settings_error
+        return self._web_server_settings
 
     def get_containers(self, server_id: str):
         return self._containers_by_server.get(server_id, [])
@@ -52,6 +73,8 @@ class FakeDokployClient:
         return self._remote_files.get((server_id, path), "")
 
     def update_traefik_file(self, server_id: str, path: str, traefik_config: str):
+        if self._update_traefik_error is not None:
+            raise self._update_traefik_error
         self.updated_files.append(
             {
                 "server_id": server_id,
@@ -63,6 +86,8 @@ class FakeDokployClient:
         return {}
 
     def reload_traefik(self, server_id: str):
+        if self._reload_traefik_error is not None:
+            raise self._reload_traefik_error
         self.reloaded_servers.append(server_id)
         return {}
 

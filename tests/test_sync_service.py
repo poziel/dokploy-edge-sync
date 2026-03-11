@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 
+import pytest
 import yaml
 
 from app.sync_service import SyncService
@@ -13,11 +14,6 @@ def test_sync_service_updates_remote_file_and_reloads_when_changed(
 ):
     fake_client = fake_client_factory(
         servers=[
-            {
-                "serverId": "ingress-1",
-                "name": "ingress",
-                "ipAddress": "192.168.1.10",
-            },
             {
                 "serverId": "app-1",
                 "name": "app-server",
@@ -113,6 +109,165 @@ def test_sync_service_handles_wrong_traefik_file_path_read_error(
     assert len(fake_client.updated_files) == 1
     assert fake_client.updated_files[0]["path"] == wrong_path
     assert fake_client.reloaded_servers == ["ingress-1"]
+
+
+def test_sync_service_falls_back_to_name_lookup_when_web_settings_missing(
+    app_config,
+    fake_client_factory,
+):
+    fake_client = fake_client_factory(
+        servers=[
+            {
+                "serverId": "ingress-1",
+                "name": "ingress",
+                "ipAddress": "192.168.1.10",
+            },
+            {
+                "serverId": "app-1",
+                "name": "app-server",
+                "ipAddress": "10.0.0.20",
+            },
+        ],
+        web_server_settings={},
+        containers_by_server={
+            "app-1": [
+                {
+                    "Id": "container-1",
+                    "Names": ["/gitea"],
+                }
+            ]
+        },
+        inspect_by_container={
+            ("app-1", "container-1"): {
+                "Config": {
+                    "Labels": {
+                        "edge.enabled": "true",
+                        "edge.port": "3000",
+                        "edge.domains": "git.example.com",
+                    }
+                }
+            }
+        },
+    )
+
+    service = SyncService(app_config, fake_client)
+    service.run()
+
+    assert len(fake_client.updated_files) == 1
+    assert fake_client.updated_files[0]["server_id"] == "ingress-1"
+
+
+def test_sync_service_falls_back_to_name_lookup_when_web_settings_errors(
+    app_config,
+    fake_client_factory,
+):
+    fake_client = fake_client_factory(
+        servers=[
+            {
+                "serverId": "ingress-1",
+                "name": "ingress",
+                "ipAddress": "192.168.1.10",
+            },
+            {
+                "serverId": "app-1",
+                "name": "app-server",
+                "ipAddress": "10.0.0.20",
+            },
+        ],
+        web_server_settings_error=RuntimeError("settings endpoint unavailable"),
+        containers_by_server={
+            "app-1": [
+                {
+                    "Id": "container-1",
+                    "Names": ["/gitea"],
+                }
+            ]
+        },
+        inspect_by_container={
+            ("app-1", "container-1"): {
+                "Config": {
+                    "Labels": {
+                        "edge.enabled": "true",
+                        "edge.port": "3000",
+                        "edge.domains": "git.example.com",
+                    }
+                }
+            }
+        },
+    )
+
+    service = SyncService(app_config, fake_client)
+    service.run()
+
+    assert len(fake_client.updated_files) == 1
+    assert fake_client.updated_files[0]["server_id"] == "ingress-1"
+
+
+def test_sync_service_raises_when_no_ingress_from_settings_or_server_all(
+    app_config,
+    fake_client_factory,
+):
+    fake_client = fake_client_factory(
+        servers=[
+            {
+                "serverId": "app-1",
+                "name": "app-server",
+                "ipAddress": "10.0.0.20",
+            }
+        ],
+        web_server_settings={},
+    )
+
+    service = SyncService(app_config, fake_client)
+
+    with pytest.raises(ValueError, match='Could not find ingress server named "ingress"'):
+        service.run()
+
+
+def test_sync_service_dry_run_skips_remote_update_and_reload(
+    app_config,
+    fake_client_factory,
+):
+    app_config.dry_run = True
+    fake_client = fake_client_factory(
+        servers=[
+            {
+                "serverId": "app-1",
+                "name": "app-server",
+                "ipAddress": "10.0.0.20",
+            }
+        ],
+        containers_by_server={
+            "app-1": [
+                {
+                    "Id": "container-1",
+                    "Names": ["/gitea"],
+                }
+            ]
+        },
+        inspect_by_container={
+            ("app-1", "container-1"): {
+                "Config": {
+                    "Labels": {
+                        "edge.enabled": "true",
+                        "edge.port": "3000",
+                        "edge.domains": "git.example.com",
+                    }
+                }
+            }
+        },
+        remote_files={
+            ("ingress-1", "/etc/dokploy/traefik/dynamic/edge-sync.yml"): ""
+        },
+    )
+
+    service = SyncService(app_config, fake_client)
+    result = service.run()
+
+    assert "http" in result
+    assert fake_client.updated_files == []
+    assert fake_client.reloaded_servers == []
+    assert app_config.state_path.exists()
 
 
 def test_sync_service_does_not_reload_when_content_is_identical(

@@ -85,6 +85,9 @@ class DokployClient:
             params={"serverId": server_id},
         )
 
+    def get_web_server_settings(self) -> Any:
+        return self.get("/settings.getWebServerSettings")
+
     def read_traefik_file(self, server_id: str, path: str) -> Any:
         return self.get(
             "/settings.readTraefikFile",
